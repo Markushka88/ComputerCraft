@@ -1,0 +1,408 @@
+--[[
+      Основной скрипт, который загружает и запускает ОС. 
+      Также на данном этапе происходят необходимые проверки для
+      стабильной работы всей ОС и ее программ.
+]]
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Загрузка набора самых базовых библиотек для первичной загрузки
+
+os.loadAPI('SpeedAPI/SpeedText')
+os.loadAPI('SpeedAPI/peripheral') 
+os.loadAPI('System/API/Log') 
+os.loadAPI('System/API/Settings')
+ 
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Базовые константы загрузчика
+
+local install_files = {'installer', 'Installer.lua', 'install', 'dN2gMnV9', '.tmp'} -- временные файлы, которые могут остаться при установке ОС
+local tAPIsLoading = {} -- хранилище подгружаемых API
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Удаление временных загрузочных файлов
+
+for _, value in pairs(install_files) do
+  if fs.exists(value) then
+    fs.delete(value)
+  end
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Получаем версию нашей ОС, которая записана в файле .version
+
+versionFile = fs.open('.version', 'r')
+versionData = versionFile.readAll()
+versionFile.close()
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Начальная инициализация логирования действий с ОС пользователем
+
+Log.Initialise()
+
+-- Пишем версии ОС в лог
+Log.i(os.version()) -- Версия CraftOS(стандартной ОС)
+Log.i('SpeedOS Version: '..versionData) -- Версия SpeedOS
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Обновление всей ОС из готовой папки
+
+if fs.exists('/.update/') and fs.isDir('/.update/') then -- система обновления ОС из папки
+  Log.i('Found update!')
+  os.loadAPI("System/API/Drawing")
+  if not fs.exists('/.update/.version') then
+    Log.w('Update is corrupted! (no .version file)')
+    fs.delete('/.update/')
+  end
+
+  function installFolder(path)
+    for i, v in ipairs(fs.list('/.update/'..path)) do
+      Drawing.DrawArea(1, math.floor(Drawing.Screen.Height / 2), Drawing.Screen.Width, 1, ' ', colours.lightGrey, colours.white)
+      Drawing.DrawCharactersCenter(nil, 0, nil, nil, path .. v, colours.lightGrey, colours.white)
+      Drawing.DrawBuffer()
+      if fs.isDir('/.update/'..path .. v) then
+        fs.makeDir('/'..path .. v)
+        installFolder(path .. v .. '/')
+      else
+        fs.delete('/'..path .. v)
+        fs.move('/.update/'..path .. v, '/'..path .. v)
+      end
+      sleep(0)
+    end
+  end
+
+  Drawing.Clear(colours.white)
+  Drawing.DrawCharactersCenter(nil, -3, nil, nil, 'Installing Update', colours.blue, colours.white)
+  Drawing.DrawCharactersCenter(nil, -2, nil, nil, 'This may take a moment.', colours.grey, colours.white)
+  Drawing.DrawBuffer()
+  Log.i('Installing started...')
+  installFolder('')
+  fs.delete('/.update/')
+  Log.i('Update installed!')
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Проверка на включенность параметра "Использовать Монитор" в настройках и его совместимости с ОС(необходим цветной монитор)
+
+if Settings.GetValues('UseMonitor')['UseMonitor'] == true then -- проверяем состояние опции "Использовать Монитор" 
+  Log.i('Monitor mode enabled!') -- Печатаем в лог ахуеть, какую нужную инфу 
+  Log.i('Checking for monitor...') -- печатаем о том, что начата проверка на монитор
+
+  testMon = peripheral.find('monitor', true) -- Получаем сторону монитора
+
+  if testMon == nil then -- Если монитор не найден...
+    Log.w('No monitor found! Running on computer screen...') -- то пишем в лог, мол "идите нахуй"
+  end
+
+  if not peripheral.wrap(testMon).isColor() then -- аналогично, если монитор чернобелый
+    Log.w('No color monitor found!') -- иди нахуй
+
+  else -- если все же монитор найден
+    Log.i('Redirecting to monitor...') -- печатаем в лог о редиректе всего содержимого с экрана компа на экран монитора
+    print('OS is running on monitor(side '..testMon..').') -- и печатаем сторону рабочего мониторчика 
+    term.redirect(peripheral.wrap(testMon)) -- собственно, сам редирект
+  end
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Подгрузка АПИ
+
+function LoadAPI(_sPath)
+  local sName = fs.getName( _sPath )
+  if tAPIsLoading[sName] == true then
+    printError( 'API '..sName..' is already being loaded' )
+    return false
+  end
+  tAPIsLoading[sName] = true
+    
+  local tEnv = {}
+  setmetatable( tEnv, { __index = getfenv() } )
+  local fnAPI, err = loadfile( _sPath )
+  if fnAPI then
+    setfenv( fnAPI, tEnv )
+    fnAPI()
+  else
+    printError( err )
+        tAPIsLoading[sName] = nil
+    return false
+  end
+  
+  local tAPI = {}
+  for k,v in pairs( tEnv ) do
+    tAPI[k] =  v
+  end
+  
+  -- Загружает API в оперативную память, позволяя заменить уже существующие API CraftOS
+  getfenv()[sName] = tAPI
+  _G[sName] = tAPI
+
+  tAPIsLoading[sName] = nil
+  return true
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Визуальная параша
+
+term.setCursorPos(1,1) -- курсорирование на 1, 1 по обоим осям(x, y)
+root = '' -- кореневая папка, в котором работает наша ОС, т. е. папка, в которой она установлена
+
+function PrintCentered(text, y) -- напечатать какую-то хуйню по центру экрана, принимает параметры самого текста и высоту, на которой печатать текст. Центрирование идет только по оси X.
+    local w, h = term.getSize()
+    x = math.ceil(math.ceil((w / 2) - (#text / 2)), 0)+1
+    term.setCursorPos(x, y)
+    print(text)
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Наш загрузочный экранчик. В основном тут индикация загрузки АПИшек
+
+function LoadingScreen()
+  local screenWidth, screenHeight = term.getSize() -- размер рабочего экрана
+  local x = (screenWidth - 14) / 2 -- ось X для работы загрузчика
+  local y = (screenHeight - 9) / 2 -- аналогично ось Y
+
+  local rs_s = false -- сторона, с которой мы берем "питание" компа
+  local listen_energy -- дублер этой стороны
+
+  local text = 'SpeedOS by Ma3rX' -- заголовок загрузчика
+
+  local currentImage = -1
+  local totalAPIs = #fs.list(root .. 'System/API/') -- кол-во АПИ
+
+  if Settings.GetValues('UseRedstoneElectrity')['UseRedstoneElectrity'] == true then -- если включено питание компа от редстоуна
+    for _, storona in pairs(rs.getSides()) do -- проверяем стороны, с которых подается сигнал
+      if rs.getInput(storona) == true then
+        rs_s = true
+        listen_energy = storona
+      end
+    end
+
+    if not rs_s then -- вывод предупреждения, если источника подпитки не найдено
+      term.setBackgroundColor(colors.blue)
+      term.clear()
+      term.setTextColor(colors.blue)
+      term.setBackgroundColor(colors.white)
+      SpeedText.cPrint('You don\'\t have electricity!')
+      term.setTextColor(colors.white)
+      term.setBackgroundColor(colors.blue)
+      SpeedText.cPrint('Click anywhere to reboot', 10)
+
+      os.pullEvent('mouse_click')
+      os.reboot()
+    end
+
+    Log.i('Getting energy from side '..listen_energy) -- печатаем в лог, откуда берем энергию
+  end
+
+  -- Сам загрузочный экран
+
+  term.setBackgroundColor(colors.white)
+
+  term.setTextColor(colors.black)
+  SpeedText.cPrint('SpeedOS', 7)
+
+  term.clear()
+  term.setTextColor(colors.lightGray)
+
+  -- Загрузка АПИ из папки System/API
+
+  for _, file in pairs(fs.list(root .. 'System/API/')) do
+    if string.sub(file,1,1) ~= '.' then
+      term.clear()
+      term.setTextColor(colors.black)
+      SpeedText.cPrint('SpeedOS', 7)
+      term.setTextColor(colors.lightGray)
+      SpeedText.cPrint('API '..file..' loaded!')
+      sleep(0.1)
+
+      if not LoadAPI(root .. 'System/API/' .. file) then
+        term.setTextColour(colours.red)
+        PrintCentered('Error While Loading API '..file, y + 11)
+        Log.e('Error While Loading API '..file)
+        term.setCursorPos(1, 1)
+        return false
+      end
+      Log.i('Loading: '..file)
+    end
+  end
+
+  -- Загрузка АПИ из папки SpeedAPI
+
+  for _, file in pairs(fs.list(root .. 'SpeedAPI/')) do
+    if string.sub(file,1,1) ~= '.' then
+      term.clear()
+      term.setTextColor(colors.black)
+      SpeedText.cPrint('SpeedOS', 7)
+      term.setTextColor(colors.lightGray)
+      SpeedText.cPrint('API '..file..' loaded!')
+      sleep(0.1)
+
+      if not LoadAPI(root .. 'SpeedAPI/' .. file) then
+        term.setTextColour(colours.red)
+        PrintCentered('Error While Loading API '..file, y + 11)
+        Log.e('Error While Loading API '..file)
+        term.setCursorPos(1, 1)
+        return false
+      end
+      
+      Log.i('Loading: '..file)
+    end
+  end
+
+  -- Выставление редиректов команд. По сути это позволяет нам запускать свои кастомные скрипты из любой папки, короче говоря - алиасы команд
+  
+  for _, file in pairs(fs.list(root .. 'System/Alias/')) do
+    if string.sub(file,1,1) ~= '.' then
+
+        shell.setAlias(file, 'System/Alias/'..file)
+        Log.i('Making alias: '..file)
+        term.clear()
+        term.setTextColor(colors.black)
+        SpeedText.cPrint('SpeedOS', 7)
+        term.setTextColor(colors.lightGray)
+        SpeedText.cPrint('Alias '..file..' set!')
+        sleep(0.1)
+    end
+  end
+
+  sleep(1)
+  term.clear()
+  term.setTextColor(colors.black)
+  SpeedText.cPrint('SpeedOS', 7)
+  term.setTextColor(colors.lightGray)
+  SpeedText.cPrint('Initializing components')
+  sleep(3)
+
+  if peripheral.find('modem') then -- если найден модем
+    rednet.open(peripheral.find('modem')) -- открываем его со стороны нахождения
+      Log.i('Opened modem on side '..peripheral.find('modem')) -- и печатаем об этом в лог
+  end
+
+  sleep(0.1)
+  return true
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Работа десктопа и финальные проверочки
+
+-- предупреждение о том, что монитор не цветной
+if not term.isColour() then
+  term.setBackgroundColor(colours.black)
+  term.setTextColor(colours.white)
+  term.clear()
+
+  PrintCentered('SpeedOS requires an advanced (gold) computer.', 8)
+
+  PrintCentered('Press any key to return to the shell.', 10)
+
+  os.pullEvent('key')
+  term.clear()
+  term.setCursorPos(1,1)
+
+elseif LoadingScreen() then
+  -- МОЁ ЛЮБИМОЕ НАХУЙ - АВТОЗАГРУЗОЧНЫЕ СКРИПТЫ
+  Log.i('Checking for startup scripts...')
+
+  if not fs.exists('System/.autorun') then -- если нет директории с автозагрузочными скриптами
+    Log.w('No autorun directory!')
+    
+    Log.i('Making autorun directory...') -- то мы ее сделаем
+    fs.makeDir('System/.autorun')
+    Log.i('Done!')
+
+  else
+    if fs.isDir('System/.autorun') then -- ураа нашло!
+      Log.i('Autorun directory found!')
+
+      if #fs.list('System/.autorun') == 0 then
+        Log.i('No startup scripts found!') -- если скриптов не было найдено в директории
+      else
+        Log.i('Running all startup scripts...')
+
+        for _, script in pairs(fs.list('System/.autorun')) do -- ну и запускаем скрипты поочереди
+          Log.i('Running script '..script..'...')
+          shell.run('System/.autorun/'..script)
+          Log.i('Startup script '..script..' finished!')
+        end
+
+        Log.i('All startup scripts have been launched!') -- все скрипты запущены, по сути загрузка на данном этапе завершена
+      end
+    else
+      Log.w('Autorun isn\'\t directory!') -- файл .autorun это не директория, работа запрещена нахуй
+    end
+
+  end
+
+  -- Запуск нашего Десктопа с приложухами
+  Log.i('Starting Desktop...')
+  windows.fadeOut(0.1)
+  os.run(getfenv(), '/System/main.lua')
+  
+
+  local ok = {pcall(Initialise)}
+
+  -- Печать об ошибке и ее последующая отправка по Email мне
+  if not ok[1] then
+    term.setBackgroundColor(colours.grey)
+    term.setTextColor(colours.white)
+    term.clear()
+    paintutils.drawImage(paintutils.loadImage('/crash'), (Drawing.Screen.Width-7)/2 + 1, 3)
+    term.setBackgroundColor(colours.grey)
+    term.setTextColor(colours.white)
+
+    PrintCentered('SpeedOS has crashed!', 8)
+
+    PrintCentered('SpeedOS has encountered a serious error,', 10)
+    PrintCentered('click anywhere to reboot.', 11)
+
+    term.setTextColor(colours.lightGrey)
+    table.remove(ok, 1)
+
+    local sucess
+
+    for i, v in ipairs(ok) do
+      local w, h = term.getSize()
+        x = math.ceil(math.ceil((w / 2) - (#v / 2)), 0)+1
+        if x < 1 then
+          x = 1
+        end
+        term.setCursorPos(x, i+12)
+        print(v)
+        Log.e(v)
+
+        v = v:gsub(" ", "%%20")
+
+        report_server_address = "http://127.0.0.1:8000" -- адрес сервера для отправки репортов
+        report_text = "Error:%20"..v -- текст репорта в Issue
+        report_title = "[v"..versionData.."]%20"..v -- заголовок Issue
+        report = http.get(report_server_address.."/report?title="..report_title.."&text="..report_text)
+
+        if report then -- если сервер репортов доступен
+          report_response = report.readAll() -- читаем ответ севрера на отправленный репорт
+
+          if string.find(report_response, "https://") then -- ну бля ну понятно же!
+            success = true
+          else
+            sucess = false
+          end
+        end
+    end
+
+    PrintCentered('Please report this to OS Github repository.', Drawing.Screen.Height)
+    term.setTextColor(colours.white)
+    
+    local message = 'Error report failed!'
+
+    if success then
+      Log.i('Error report sent!')
+      message = 'Error report sent!'
+    end
+
+    term.setCursorPos(1, Drawing.Screen.Height-3)
+    term.clearLine()
+
+    PrintCentered(message..' Click to reboot.', Drawing.Screen.Height-3)
+
+    os.pullEvent('mouse_click')
+    os.reboot()
+  end
+end
