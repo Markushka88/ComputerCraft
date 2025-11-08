@@ -1,0 +1,102 @@
+--[[
+    Либа, созданная для замены существующей части кода в реднетовском АПИ.
+    Довольно удобна, вроде багов нет. Да и хуй с ним.
+]]
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Константы
+
+local blacklist = {} -- чёрный список, айди, от которых мы не принимаем сообщения
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Инициализация
+
+if SpeedOS then
+	SpeedOS.LoadAPI("SpeedAPI/SpeedText")
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Есть ли модем на какой-то стороне?
+
+function isModem(side)
+	if peripheral.getType(side) == "modem" then
+		return true
+	end
+
+	return false
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Порт модема на этой стороне открыт?
+
+function isOpen(side)
+	if isModem(side) then
+		return rednet.isOpen(side)
+	end
+
+	return false
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Открыть порт модема на заданной стороне
+
+function open(side)
+	if isModem(side) then
+		if not isOpen(side) then
+			rednet.open(side)
+			return true
+		end
+	end
+
+	return false
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Закрыть порт модема на заданной стороне
+
+function close(side)
+	if isModem(side) then
+		if isOpen(side) then
+			rednet.close(side)
+			return true
+		end
+	end
+
+	return false
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Отправить сообщение конкретному компьютеру по Rednet
+
+function send(recipient, message, waitUntilPortOpen)
+	return rednet.send(recipient, message, waitUntilPortOpen)
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Отправить сообщение всем компьютерам в сети Rednet
+
+function broadcast(message, waitUntilPortOpen)
+	return rednet.broadcast(message)
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Ждать сообщения по Rednet
+
+function receive(timeout)
+	local timer = nil
+	local sEvent = "rednet_message"
+	if nTimeout then
+		timer = os.startTimer( nTimeout )
+		sEvent = nil
+	end
+	while true do
+		local e, p1, p2, p3 = os.pullEvent( sEvent )
+		if e == "rednet_message" and not SpeedText.getIndex(blacklist, p1) then
+			return p1, p2, p3
+		elseif e == "timer" and p1 == timer then
+			return nil, nil, nil
+		end
+	end
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------

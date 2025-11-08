@@ -1,0 +1,109 @@
+--[[
+    Либа - по сути некая "насдтройка" над стандартным 
+    http. Добавляет функции, которые делают использование
+    этого самого HTTP чуть более удобным.
+]]
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Массив с чёрным списком сайтов. Пока что пусто.
+
+local blacklist = {}
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Спизженная из SpeedText функция, проверяет наличие элемента в массиве
+
+local function isBlacklisted(url)
+	for _, pizda in pairs(blacklist) do
+		if url == pizda then
+			return true
+		end
+	end
+
+	return false
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Цетральная функция для обработки POST- и GET- запросов по HTTP
+
+local function wrapRequest(_url, _post)
+	local requestID = http.request(_url, _post)
+
+	while true do
+		local event, param1, param2 = os.pullEvent()
+		if event == "http_success" and param1 == _url then
+			return param2
+		elseif event == "http_failure" and param1 == _url then
+			return nil
+		end
+	end		
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- GET-запрос
+
+http.get = function(_url)
+	if not isBlacklisted(_url) then
+		return wrapRequest(_url, nil)
+	end
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- POST-запрос
+
+http.post = function(_url, _post)
+	if not isBlacklisted(_url) then
+		return wrapRequest(_url, _post or "")
+	end
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Функция преобразования обычной строки в пригодную для HTTP-запроса
+
+function urlEncode(str)
+	if str then
+		str = string.gsub(str, "\n", "\r\n")
+		str = string.gsub(str, "([^%w ])",
+		function (c)
+			return string.format("%%%02X", string.byte(c))
+		end)
+		str = string.gsub(str, " ", "%%20")
+	end
+	return str	
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------
+-- Сериализация Lua-таблиц в формат URL-строки
+
+function serialize(data)
+	if type(data) == "table" then		
+		local result = ""
+
+		local function doSerialize(table, keyStack)
+			for key, value in pairs(table) do
+				if type(key) == "number" then
+					key = key - 1
+				end
+
+				if type(value) == "table" then
+					doSerialize(value, keyStack .. "[" .. urlEncode(tostring(key)) .. "]")
+				else
+					result = result .. keyStack .. "[" .. urlEncode(tostring(key)) .. "]=" .. urlEncode(tostring(value)) .. "&"
+				end
+			end
+		end
+		
+		for key, value in pairs(data) do	
+			if type(value) == "table" then
+				doSerialize(value, urlEncode(tostring(key)))
+			else
+				result = result .. key .. "=" .. urlEncode(tostring(value)) .. "&"
+			end
+		end
+
+		return result.sub(1, -2)
+	else
+		return tostring(data)
+	end
+end
+
+-----------------------------------------------------------------------------------------------------------------------------------

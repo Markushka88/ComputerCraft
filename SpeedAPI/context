@@ -1,0 +1,131 @@
+function menu(...)
+        --ЕСЛИ ЧИСЛО АРУМЕНТОВ < 3 И ТИП ТРЕТЬЕГО АРГУМЕНТА НЕ TABLE, ТО ВЫДАТЬ ОШИБКУ ПО ИСПОЛЬЗОВАНИЮ API
+        if #arg < 3 or type(arg[3]) ~= "table" then error("Usage: menu(number x,number y,table Element1,table Element2, table Element3...) \nReturns: string Action \n<Element> structure: {string Name[, boolean isElementHidden][,number colorOfText]}") end
+       
+        --ПОЛУЧЕНИЕ РАЗМЕРА МОНИТОРА
+        local xSize, ySize = term.getSize()
+ 
+        --ПРОСТОЕ ОТОБРАЖЕНИЕ ТЕКСТА В УКАЗАННЫХ КООРДИНАТАХ С УКАЗАННЫМ ЦВЕТОМ
+        local function text(x,y,text1,color)
+                term.setTextColor(color)
+                term.setCursorPos(x,y)
+                term.write(text1)
+        end
+ 
+        --СОЗДАНИЕ ОБЪЕКТОВ В ПАМЯТИ (В НАШЕМ СЛУЧАЕ КНОПОК, ОТВЕЧАЮЩИХ ЗА ВЫБОР ЭЛЕМЕНТА МЕНЮ)
+        local Objects = {}
+        local function newObj(name,isHidden,xStart,xEnd,y)
+                Objects[name]={}
+                Objects[name]["isHidden"] = isHidden
+                Objects[name]["xStart"] = xStart
+                Objects[name]["xEnd"] = xEnd
+                Objects[name]["y"] = y
+        end
+       
+        --ОПРЕДЕЛЕНИЕ САМОГО ДЛИННОГО ПО КОЛ-ВУ СИМВОЛОВ ЭЛЕМЕНТА МЕНЮ
+        local theLongestElement = #arg[3][1]
+        for i=3,#arg do
+                if arg[i] ~= "-" and theLongestElement < #arg[i][1] then
+                        theLongestElement = #arg[i][1]
+                end
+        end
+ 
+        --ОПРЕДЕЛЕНИЕ РАЗМЕРА МЕНЮ
+        local xSizeOfMenu = theLongestElement + 4
+        local ySizeOfMenu = #arg-2
+ 
+        local xStartToDisplay = nil
+        local yStartToDisplay = nil
+ 
+        --РИСОВАНИЕ КВАДРАТА С ЗАЛИВКОЙ
+        local function square(x1,y1,width,height,color)
+                local string = string.rep(" ",width)
+                term.setBackgroundColor(color)
+                for y=y1,(y1+height-1) do
+                        term.setCursorPos(x1,y)
+                        term.write(string)
+                end
+        end
+ 
+        --ОТРИСОВКА РАЗДЕЛИТЕЛЯ В МЕНЮ
+        local function drawSeparator(x,y,size)
+                term.setTextColor(colors.lightGray)
+                term.setCursorPos(x,y)
+                term.write(string.rep("-",size))
+        end
+       
+        --ФУНКЦИЯ ОТРИСОВКИ ВСЕГО МЕНЮ
+        local function drawMenu(xMenu,yMenu)
+ 
+                --КОРРЕКЦИЯ КООРДИНАТЫ МЕНЮ, ЧТОБ ЗА КРАЯ ЭКРАНА НЕ ЗАЛЕЗАЛО
+                if yMenu+ySizeOfMenu - 1  >= ySize then yMenu = yMenu - (yMenu+ySizeOfMenu - 1 - ySize) - 1 end
+                if xMenu+xSizeOfMenu - 1  >= xSize then xMenu = xMenu - (xMenu+xSizeOfMenu - 1 - xSize) - 1 end
+ 
+                --ОПРЕДЕЛЕНИЕ ТОЧЕК СТАРТА ОТОБРАЖЕНИЯ ТЕКСТА В МЕНЮ
+                xStartToDisplay = xMenu + 2
+                yStartToDisplay = yMenu
+ 
+                --ОТРИСОВКА ТЕНИ МЕНЮ
+                square(xMenu+1,yMenu+1,xSizeOfMenu,ySizeOfMenu,colors.gray)
+ 
+                --ОТРИСОВКА БЕЛОЙ ПОДЛОЖКИ МЕНЮ
+                square(xMenu,yMenu,xSizeOfMenu,ySizeOfMenu,colors.white)
+ 
+                --ЦИКЛ ПЕРЕБОРА ВСЕХ ЭЛЕМЕНТОВ МЕНЮ, РАССМАТРИВАЕМ ДАННЫЕ О КАЖДОМ
+                for i=3,#arg do
+                        --ЕСЛИ ВЫБРАННЫХ ЭЛЕМЕНТ НЕ ЯВЛЯЕТСЯ РАЗДЕЛИТЕЛЕМ, ТО
+                        if arg[i] ~= "-" then
+                                --ЗАДАНИЕ СТАНДАРТНОГО ЦВЕТА ТЕКСТА ДЛЯ ЭЛЕМЕНТА МЕНЮ
+                                local contextColor = colors.black
+                                --ЕСЛИ АРГУМЕНТ_2 (СКРЫТЫЙ/НЕ СКРЫТЫЙ) И АРУМЕНТ_3 (ЦВЕТ ТЕКСТА ЭЛЕМЕНТА) ДЛЯ РАССМАТРИВАЕМОГО ЭЛЕМЕНТА НЕ УКАЗАНЫ, ТО
+                                if arg[i][2] == nil and arg[i][3] == nil then
+                                        contextColor = colors.black
+                                --ЕСЛИ АРГУМЕНТ 2 = FALSE И АРГУМЕНТ 3 НЕ УКАЗАН, ТО
+                                elseif arg[i][2] == false and arg[i][3] == nil then
+                                        contextColor = colors.black
+                                --ЕСЛИ АРГУМЕНТ 2 = FALSE И АРГУМЕНТ 3 УКАЗАН, ТО
+                                elseif arg[i][2] == false and arg[i][3] ~= nil then
+                                        contextColor = arg[i][3]
+                                --ЕСЛИ АРГУМЕНТ 2 = TRUE, ТО ЭЛЕМЕНТ СКРЫТ
+                                elseif arg[i][2] == true then
+                                        contextColor = colors.lightGray
+                                end
+ 
+                                --ОТОБРАЖЕНИЕ ТЕКСТА ЭЛЕМЕНТА В САМОМ МЕНЮ
+                                text(xStartToDisplay,yStartToDisplay+i-3,arg[i][1],contextColor)
+                                --СОЗДАНИЕ ОБЪЕКТА ЭЛЕМЕНТА В ПАМЯТИ, ЧТОБЫ ПОТОМ ИМЕТЬ К НЕМУ ДОСТУП
+                                newObj(arg[i][1],arg[i][2],xMenu,xMenu+xSizeOfMenu-1,yStartToDisplay+i-3)
+ 
+                        --А ЕСЛИ ВСЕ-ТАКИ ЯВЛЯЕТСЯ, ТО
+                        else
+                                drawSeparator(xMenu,yStartToDisplay+i-3,xSizeOfMenu)
+                        end
+                end
+        end
+       
+        --СТАРТ ПРОГРАММЫ, РИСУЕМ МЕНЮ
+        drawMenu(arg[1],arg[2])
+ 
+        --ОТСЛЕЖИВАНИЕ КЛИКА МЫШИ
+        local event,side,xClick,yClick = os.pullEvent()
+        if event == "monitor_touch" then side = 1 end
+        if event == "mouse_click" or event == "monitor_touch" then
+                --ПЕРЕБОР ВСЕХ ЭЛЕМЕНТОВ МАССИВА ОБЪЕКТОВ В ПАРЕ СО ЗНАЧЕНИЕМ ЭЛЕМЕНТА (КЛЮЧ = ЗНАЧЕНИЕ, KEY = VAL)
+                for key,val in pairs(Objects) do
+                        --ЕСЛИ МЫ КЛИКНУЛИ НА ОБЪЕКТ, И ЭТОТ ОБЪЕКТ НЕ ЯВЛЯЕТСЯ СКРЫТЫМ, ТО
+                        if xClick >= Objects[key]["xStart"] and xClick <= Objects[key]["xEnd"] and yClick == Objects[key]["y"] and Objects[key]["isHidden"] == false or xClick >= Objects[key]["xStart"] and xClick <= Objects[key]["xEnd"] and yClick == Objects[key]["y"] and Objects[key]["isHidden"] == nil then
+                                --НАРИСОВАТЬ ГОЛУБОЕ ВЫДЕЛЕНИЕ ЭЛЕМЕНТА МЕНЮ
+                                for i=Objects[key]["xStart"],Objects[key]["xEnd"] do
+                                        paintutils.drawPixel(i,Objects[key]["y"],colors.blue)
+                                end
+                                --ОТОБРАЗИТЬ ТОТ ЖЕ ТЕКСТ, ТОЛЬКО БЕЛЫМ ЦВЕТОМ
+                                text(xStartToDisplay,Objects[key]["y"],key,colors.white)
+                                --ЖДАТЬ НЕКОТОРОЕ ВРЕМЯ
+                                sleep(0.3)
+                                --ВЕРНУТЬ ЗНАЧЕНИЕ KEY (ТО ЕСТЬ ЗНАЧЕНИЕ ВЫБРАННОГО ЭЛЕМЕНТА МЕНЮ) И ЗАВЕШИТЬ ПРОГРАММУ МЕНЮ
+                                return key
+                        end
+                        --А ЕСЛИ НИКАКОЙ ЭЛЕМЕНТ МЕНЮ НЕ БЫЛ ВЫБРАН, ТО ФУНКЦИЯ ВЕРНЕТ NIL
+                end
+        end
+end
