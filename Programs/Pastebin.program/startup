@@ -1,0 +1,112 @@
+if SpeedOS then
+	SpeedOS.ToolBarColour = colours.lightGrey
+	SpeedOS.ToolBarTextColour = colours.white
+end
+
+SpeedOS.LoadAPI("SpeedAPI/SpeedGUI")
+SpeedOS.LoadAPI("SpeedAPI/lddfm")
+SpeedOS.LoadAPI("SpeedAPI/SpeedText")
+
+fs = SpeedOS.FS
+
+term.setBackgroundColor(colors.gray)
+term.clear()
+term.setCursorPos(1, 1)
+term.setCursorPos(18, 2)
+print("Pastebin client")
+
+function download()
+
+  term.setBackgroundColor(colors.gray)
+  term.clear()
+  term.setTextColor(colors.white)
+  term.setCursorPos(2, 2)
+  
+  print("Enter code: ")
+  term.setCursorPos(25, 2)
+  term.setBackgroundColor(colors.lightGray)
+  term.setTextColor(colors.white)
+  print("          ")
+  
+  term.setTextColor(colors.white)
+  term.setCursorPos(25, 2)
+  code = io.read()
+
+  term.setBackgroundColor(colors.gray)
+  term.setTextColor(colors.white)
+  term.setCursorPos(2, 4)
+  
+  print("Enter filename: ")
+  term.setCursorPos(25, 4)
+  term.setBackgroundColor(colors.lightGray)
+  term.setTextColor(colors.white)
+  print("          ")
+  
+  term.setTextColor(colors.white)
+  term.setCursorPos(25, 4)
+  fn = io.read()
+  
+  term.setBackgroundColor(colors.gray)
+  term.setTextColor(colors.lime)
+  term.setCursorPos(2, 6)
+
+  term.setBackgroundColor(colors.gray)
+  term.setTextColor(colors.lightGray)
+  term.setCursorPos(2, 4)
+  term.clear()
+
+  term.setCursorPos(1, 1)
+  shell.run("Resources/pastebin get "..tostring(code).." "..tostring(fn))
+
+  Menu()
+end
+
+function upload()
+
+  term.setBackgroundColor(colors.gray)
+  term.clear()
+  term.setTextColor(colors.white)
+  term.setCursorPos(2, 2)
+  
+  print("Enter filename: ")
+  term.setCursorPos(25, 2)
+  term.setBackgroundColor(colors.lightGray)
+  term.setTextColor(colors.white)
+  print("          ")
+  
+  term.setTextColor(colors.white)
+  term.setCursorPos(25, 2)
+  f_n = tostring(lddfm.makeMenu())
+
+  term.setBackgroundColor(colors.gray)
+  term.setTextColor(colors.lightGray)
+  term.setCursorPos(2, 4)
+  term.clear()
+
+  term.setCursorPos(1, 1)
+  shell.run("Resources/pastebin put "..tostring(f_n))
+  
+  while true do
+    event = os.pullEvent()
+
+    if event == "mouse_click" or event == "mouse_drag" or event == "key" then
+      break
+    end
+  end
+  
+  Menu()
+end
+
+function Menu()
+  term.setTextColor(colors.white)
+  term.setBackgroundColor(colors.gray)
+  term.clear()
+
+  SpeedText.cPrint("Pastebin client", 2)
+
+  SpeedGUI.gui.button.add("Upload to pastebin", upload, 15, 5, 2, 3, colors.white, colors.orange)
+  SpeedGUI.gui.button.add("Download from pastebin", download, 13, 9, 2, 3, colors.white, colors.orange)
+  SpeedGUI.start()
+end
+
+Menu()

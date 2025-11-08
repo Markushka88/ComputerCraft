@@ -1,0 +1,160 @@
+if SpeedOS then
+	SpeedOS.ToolBarColour = colours.white
+	SpeedOS.ToolBarTextColour = colours.black
+end
+
+if SpeedOS then
+	SpeedOS.LoadAPI("SpeedAPI/SpeedText")
+	SpeedOS.LoadAPI("SpeedAPI/peripheral")
+	SpeedOS.LoadAPI("SpeedAPI/windows")
+	SpeedOS.LoadAPI("SpeedAPI/config")
+end
+
+if not peripheral.find("monitor", true) then 
+	windows.clearScreen(colors.white)
+	windows.error("This program requires monitor!")
+	SpeedOS.Close()
+	error()
+end
+
+pathToConfig = "System/Matrix.settings"
+
+local fps = tonumber(config.read(pathToConfig, "fps")) --Determines how long the system will wait between each update
+local maxLifetime = tonumber(config.read(pathToConfig, "max char lifetime")) --Max lifetime of each char
+local minLifetime = tonumber(config.read(pathToConfig, "min char lifetime")) --Min lifetime of each char 
+local maxSourcesPerTick = tonumber(config.read(pathToConfig, "max sources per tick")) --Maximum number of sources created each tick
+local sourceWeight = tonumber(config.read(pathToConfig, "source weight")) --Affects the chance that no sources will be generated
+local greenWeight = tonumber(config.read(pathToConfig, "green weight")) --Threshhold out of 10 that determines when characters will switch from lime to green
+local grayWeight = tonumber(config.read(pathToConfig, "gray weight")) --Same as about, but from green to gray
+local monScale = tonumber(config.read(pathToConfig, "monitor scale"))
+local randTable = {"1","2","3","4","5","6","7","8","9","0","!","@","#","$","%","^","&","*","(",")","_","-","+","=","~","`",",","<",">",".","/","?",":","{","}","[","]","\\","\"","\'"}
+
+function printCharAt( monitor, x, y, char )
+	monitor.setCursorPos( x, y )
+	monitor.write( char )
+end
+function printGrid( monitor, grid, color )
+	for i=1,#grid do
+		for o=1,#grid[i] do
+			if color then monitor.setTextColor( grid[i][o]["color"] ) end
+			printCharAt( monitor, i, o, grid[i][o]["char"] )
+		end
+	end
+end
+
+function colorLifetime( life, originalLifetime )
+	local lifetimePart = originalLifetime/10
+	if life < grayWeight*lifetimePart then
+		return colors.gray
+	elseif life < greenWeight*lifetimePart then
+		return colors.green
+	else
+		return colors.lime
+	end
+end
+function getRandomChar()
+	return randTable[math.random(1, #randTable)]
+end
+function tick( screen )
+
+	--update lifetimes
+	for x=1,#screen do
+		for y=1,#screen[x] do
+			screen[x][y]["curLife"] = screen[x][y]["curLife"] - 1
+		end
+	end
+
+	--make the sources 'fall' and delete timed out chars
+	for x=1,#screen do
+		for y=1,#screen[x] do
+			if screen[x][y]["type"] == "source" and screen[x][y]["curLife"] == 0 then
+				screen[x][y]["type"] = "char"
+				screen[x][y]["lifetime"] = math.random(minLifetime, maxLifetime)
+				screen[x][y]["curLife"] = screen[x][y]["lifetime"]
+				screen[x][y]["color"] = colors.lime
+			
+				if y < #screen[x] then
+					screen[x][y+1]["char"] = getRandomChar()
+					screen[x][y+1]["lifetime"] = 1
+					screen[x][y+1]["curLife"] = 1
+					screen[x][y+1]["type"] = "source"
+					screen[x][y+1]["color"] = colors.white
+				end
+			elseif screen[x][y]["curLife"] < 0 then
+				screen[x][y]["char"] = " "
+				screen[x][y]["lifetime"] = 0
+				screen[x][y]["curLife"] = 0
+				screen[x][y]["type"] = "blank"
+				screen[x][y]["color"] = colors.black
+			elseif screen[x][y]["type"] == "char" then
+				screen[x][y]["color"] = colorLifetime( screen[x][y]["curLife"], screen[x][y]["lifetime"] )
+			end
+		end
+	end
+		
+	--create new character sources
+	local newSources = math.random( 0-sourceWeight, maxSourcesPerTick )
+	for i=1,newSources do
+		local col = math.random(1, #screen)
+		screen[col][1]["char"] = getRandomChar()
+		screen[col][1]["lifetime"] = 1
+		screen[col][1]["curLife"] = 1
+		screen[col][1]["type"] = "source"
+		screen[col][1]["color"] = colors.white
+	end
+	
+	return screen
+end
+
+function setup( w, h )
+	local retTab = {}
+	for x=1,w do
+		retTab[x] = {}
+		for y=1,h do
+			retTab[x][y] = {}
+			retTab[x][y]["char"] = " "
+			retTab[x][y]["lifetime"] = 0
+			retTab[x][y]["curLife"] = 0
+			retTab[x][y]["type"] = "blank"
+			retTab[x][y]["color"] = colors.black
+		end
+	end
+	return retTab
+end
+
+function run()
+	windows.clearScreen(colors.white)
+	term.setTextColor(colors.lightGray)
+	SpeedText.cPrint("Running on monitor "..peripheral.find("monitor", true))
+
+	local monitor = peripheral.wrap( peripheral.find("monitor", true) )
+	local color = monitor.isColor()
+
+	monitor.setTextScale(monScale)
+
+	local w, h = monitor.getSize()
+	local screen = setup( w, h )
+
+	while true do
+		screen = tick( screen )
+		printGrid( monitor, screen, color )
+		os.sleep(1/fps)
+	end
+end
+
+function eventHandler()
+	while true do
+		event = os.pullEvent()
+
+		if event == "mouse_click" or event == "mouse_drag" or event == "key" or event == "monitor_touch" then
+			local monitor = peripheral.wrap( peripheral.find("monitor", true) )
+			monitor.clear()
+			monitor.setTextColor(colors.white)
+			monitor.setCursorPos(1, 1)
+
+			SpeedOS.Close()
+		end
+	end
+end
+
+parallel.waitForAny(run, eventHandler)
