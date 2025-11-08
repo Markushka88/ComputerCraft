@@ -94,7 +94,7 @@ local checkAutoUpdateArg = nil -- временный аргумент для о�
 function CheckAutoUpdate(arg)
 	checkAutoUpdateArg = arg -- дублируем аргумент в другую переменную
 	if http then -- если включен HTTP
-		http.request('https://api.github.com/repos/ma3rxofficial/ComputerCraft/releases#') -- отправляем запрос прямиком на мой гитхаб для проверки новых версий
+		http.request('https://api.github.com/repos/Markushka88/ComputerCraft/releases#') -- отправляем запрос прямиком на мой гитхаб для проверки новых версий
 	elseif arg then -- если уж не включен HTTP...
 		ButtonDialogueWindow:Initialise("HTTP Not Enabled!", "Turn on the HTTP API to update.", 'Ok', nil, function(success)end):Show() -- то говорим, что для обновления он должен быть включен. а хули нет?
 	end
