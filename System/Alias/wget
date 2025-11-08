@@ -1,0 +1,48 @@
+local args = {...}
+
+local run = false
+local url = args[1]
+
+if args[1] == "run" then
+  run = true
+end
+
+if run == true then
+  url = args[2]
+end
+
+if args[1] and args[2] then
+  print("Connecting to "..url.."...")
+
+  if not http.get(url) then
+    print("Can't connect to URL!")
+    error()
+  end
+
+  if run == true then
+    data = http.get(url).readAll()
+    file = fs.open(".tmp", "w")
+
+    file.write(data)
+    file.close()
+
+    print("Running...")
+
+    shell.run(".tmp")
+    fs.delete(".tmp")
+
+  else
+    data = http.get(url).readAll()
+    file = fs.open(args[2], "w")
+
+    file.write(data)
+    file.close()
+
+    print("Downloaded "..url.." as "..args[2])
+  end
+
+else
+  print("Usage:")
+  print("wget <link> [filename]")
+  print("wget run <link>")
+end
