@@ -12,7 +12,7 @@ local authorized = false
 
 windows.clearScreen(colors.white)
 
-get_request = http.get("https://raw.githubusercontent.com/ma3rxofficial/ComputerCraft/refs/heads/main/Programs/AppMarket.program/Resources/server_ip.dat")
+get_request = http.get("https://raw.githubusercontent.com/Markushka88/ComputerCraft/refs/heads/main/Programs/AppMarket.program/Resources/server_ip.dat")
 
 if not get_request then
     windows.clearScreen(colors.cyan)
