@@ -9,6 +9,7 @@ SpeedOS.LoadAPI("Programs/AppMarket.program/Resources/pkger")
 
 local imya, parol
 local authorized = false
+local lastPageState = nil
 
 windows.clearScreen(colors.white)
 
@@ -20,7 +21,7 @@ if not get_request then
     SpeedOS.Close()
 end
 
-local server_addr = "http://"..get_request.readAll()
+local server_addr = "http://"..get_request.readAll() 
 
 fs = SpeedOS.FS
 
@@ -110,9 +111,11 @@ function downloadApp(appName, save_as)
         fs.delete(save_as)
 
         windows.attention({"Done!"}, {'App ' .. '"' .. save_as .. '"', "successfully downloaded"})
+        lastPageState = nil
         listApps()
     else
         windows.error("Can't load app. Server not reachable.")
+        lastPageState = nil
         listApps()
     end
 end
@@ -330,10 +333,12 @@ function drawAppPage(app)
 
         if x <= menuWidth then
             for i, btn in ipairs(buttons) do
-                local btnY = 2 + (i - 1) * 2
+                        local btnY = 2 + (i - 1) * 2
                 if authorized then
                     if y == 2 then
-                        listApps()
+                        local state = lastPageState
+                        lastPageState = nil
+                        listApps(state)
                         return
                     elseif y == 4 then
                         drawUploadPage()
@@ -344,7 +349,9 @@ function drawAppPage(app)
                     end
                 else
                     if y == 2 then
-                        listApps()
+                        local state = lastPageState
+                        lastPageState = nil
+                        listApps(state)
                         return
                     elseif y == 4 then
                         drawLoginPage()
@@ -369,18 +376,20 @@ function drawAppPage(app)
     end
 end
 
-function listApps()
+function listApps(restoreState)
     term.setBackgroundColor(colors.white)
     term.clear()
 
     local buttons, menuWidth = drawMenu()
 
-    local searchQuery = ""
+    local searchQuery = restoreState and restoreState.searchQuery or ""
     local cursorVisible = true
     local width, height = term.getSize()
     local searchBarHeight = 3
     local maxSearchLength = width - menuWidth - 10
     local cursorPos = 1
+    local lastSearchQuery = searchQuery
+    local currentPageForQuery = restoreState and restoreState.currentPage or 1
 
     local function drawSearchBar()
         term.setBackgroundColor(colors.lightGray)
@@ -428,7 +437,22 @@ function listApps()
                     local rowsPerPage = math.floor((height - searchBarHeight - 1) / rowHeight)
                     local appsPerPage = rowsPerPage * columns + 3
                     local currentPage = 1
-                    local totalPages = math.ceil(#apps / appsPerPage)
+                    if searchQuery == lastSearchQuery then
+                        currentPage = currentPageForQuery
+                    else
+                        lastSearchQuery = searchQuery
+                        currentPageForQuery = 1
+                        currentPage = 1
+                    end
+                    local totalPages = math.max(1, math.ceil(#apps / appsPerPage))
+                    if currentPage > totalPages then
+                        currentPage = totalPages
+                        currentPageForQuery = currentPage
+                    end
+                    if currentPage < 1 then
+                        currentPage = 1
+                        currentPageForQuery = 1
+                    end
 
                     local function drawPage()
                         term.setBackgroundColor(colors.white)
@@ -517,14 +541,17 @@ function listApps()
                                 drawApps()
                             elseif x >= menuWidth + 2 and x <= menuWidth + 4 and y == height and currentPage > 1 then
                                 currentPage = currentPage - 1
+                                currentPageForQuery = currentPage
                                 drawPage()
                             elseif x >= menuWidth + 4 + paginator_len and x <= menuWidth + width and y == height and currentPage < totalPages then
                                 currentPage = currentPage + 1
+                                currentPageForQuery = currentPage
                                 drawPage()
                             elseif x <= menuWidth then
                                 for i, btn in ipairs(buttons) do
                                     local btnY = 2 + (i - 1) * 2
                                     if y == 2 then
+                                        lastPageState = nil
                                         listApps()
                                         return
                                     elseif y == 4 then
@@ -565,6 +592,11 @@ function listApps()
                                     local yStart = searchBarHeight + 1 + row * (rowHeight * 3) + subRow * rowHeight
 
                                     if x >= xStart and x < xStart + columnWidth and y >= yStart and y < yStart + rowHeight then
+                                        currentPageForQuery = currentPage
+                                        lastPageState = {
+                                            searchQuery = searchQuery,
+                                            currentPage = currentPage
+                                        }
                                         drawAppPage(apps[globalIndex])
                                         return
                                     end
@@ -617,13 +649,16 @@ function uploadApp(username, password, app_name, app_content, app_description)
 
         if body == "App " .. app_name .. " uploaded successfully!" then
             windows.attention({"Done!"}, {"App uploaded successfully."})
+            lastPageState = nil
             listApps()
         else
             windows.error("Upload failed: " .. body)
+            lastPageState = nil
             listApps()
         end
     else
         windows.error("Error connecting to the server.")
+        lastPageState = nil
         listApps()
     end
 end
@@ -719,6 +754,7 @@ function drawUploadPage()
             if x <= menuWidth then
                 for i, btn in ipairs(buttons) do
                     if y == 2 then
+                        lastPageState = nil
                         listApps()
                         return
                     elseif y == 4 then
@@ -877,6 +913,7 @@ function drawLoginPage()
             if x <= menuWidth then
                 for i, btn in ipairs(buttons) do
                     if y == 2 then
+                        lastPageState = nil
                         listApps()
                         return
                     elseif y == 4 then
@@ -911,6 +948,7 @@ function drawLoginPage()
                 if login(username, password) then
                     imya, parol = username, password
                     authorized = true
+                    lastPageState = nil
                     listApps()
                 end
                 return
@@ -1051,6 +1089,7 @@ function drawRegisterPage()
             if x <= menuWidth then
                 for i, btn in ipairs(buttons) do
                     if y == 2 then
+                        lastPageState = nil
                         listApps()
                         return
                     elseif y == 4 then
@@ -1093,6 +1132,7 @@ function drawRegisterPage()
                         if responseBody == "User registered successfully!" then
                             imya, parol = username, password
                             authorized = true
+                            lastPageState = nil
                             listApps()
                         else
                             windows.error("Error: " .. responseBody)
