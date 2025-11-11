@@ -372,7 +372,7 @@ elseif LoadingScreen() then
 
         v = v:gsub(" ", "%%20")
 
-        report_server_address = "http://127.0.0.1:8000" -- адрес сервера для отправки репортов
+        report_server_address = "http://spap.hoho.ws:505" -- адрес сервера для отправки репортов
         report_text = "Error:%20"..v -- текст репорта в Issue
         report_title = "[v"..versionData.."]%20"..v -- заголовок Issue
         report = http.get(report_server_address.."/report?title="..report_title.."&text="..report_text)
