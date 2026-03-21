@@ -843,6 +843,18 @@ function RightClickFile(file, absX, absY)
 end
 
 function Scroll(event, direction, x, y)
+	if Current.Window and Current.Window.ListView then
+		local listView = Current.Window.ListView
+		listView.Scroll = listView.Scroll + direction
+		if listView.Scroll < 0 then
+			listView.Scroll = 0
+		elseif listView.Scroll > listView.MaxScroll then
+			listView.Scroll = listView.MaxScroll
+		end
+		Draw()
+		return
+	end
+
 	Current.FileScroll = Current.FileScroll + direction
 	if Current.FileScroll < 0 then
 		Current.FileScroll = 0
