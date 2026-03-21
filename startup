@@ -222,6 +222,14 @@ function LoadingScreen()
         term.setCursorPos(1, 1)
         return false
       end
+
+      if file == 'term' and Settings.GetValues('UseMonitor')['UseMonitor'] == true and testMon then
+        local mon = peripheral.wrap(testMon)
+        if mon and mon.isColor and mon.isColor() then
+          term.redirect(mon)
+        end
+      end
+
       Log.i('Loading: '..file)
     end
   end
