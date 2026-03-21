@@ -980,7 +980,7 @@ end
 
 function login(username, password)
     local params = "username=" .. username .. "&password=" .. password
-    local response = http.post("http://localhost:5000/login", params)
+    local response = http.post(server_addr .. "/login", params)
 
     if response then
         local body = response.readAll()
