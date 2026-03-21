@@ -5,10 +5,20 @@
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
-native = term.native or term
+if type(term.native) == "function" then
+    native = term.native()
+elseif type(term.native) == "table" then
+    native = term.native
+else
+    native = term
+end
 
-local redirectTarget = native
+local redirectTarget = term
+if term.current and type(term.current) == "function" then
+    redirectTarget = term.current() or term
+end
 local tRedirectStack = {}
+current = redirectTarget
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -51,6 +61,7 @@ term.restore = function()
 	if #tRedirectStack > 0 then
 		redirectTarget = tRedirectStack[#tRedirectStack] 
 		tRedirectStack[#tRedirectStack] = nil
+		current = redirectTarget
 	end
 end
 
