@@ -11,6 +11,13 @@ Current = {
 	CursorColour = colours.black
 }
 
+IntroAnimation = {
+	Active = false,
+	Offset = 0,
+	Timer = nil,
+	Interval = 0.02
+}
+
 Events = {
 	
 }
@@ -18,6 +25,18 @@ Events = {
 InterfaceElements = {
 	
 }
+
+function ShiftControls(deltaX)
+	for k, v in pairs(settings) do
+		if v.Control then
+			v.Control.X = v.Control.X + deltaX
+		elseif v.Controls then
+			for i, c in ipairs(v.Controls) do
+				c.X = c.X + deltaX
+			end
+		end
+	end
+end
 
 
 function Initialise()
@@ -97,11 +116,32 @@ function Initialise()
 		startY = startY + 2
 	end
 
+	if values['UseAnimations'] then
+		IntroAnimation.Active = true
+		IntroAnimation.Offset = -14
+		ShiftControls(IntroAnimation.Offset)
+		IntroAnimation.Timer = os.startTimer(IntroAnimation.Interval)
+	end
+
 	Update()
 	EventHandler()
 end
 
-function Update()
+function Update(event, timer)
+	if IntroAnimation.Active and timer == IntroAnimation.Timer then
+		local remaining = -IntroAnimation.Offset
+		local step = math.max(1, math.ceil(remaining * 0.35))
+		step = math.min(step, remaining)
+		ShiftControls(step)
+		IntroAnimation.Offset = IntroAnimation.Offset + step
+		if IntroAnimation.Offset < 0 then
+			IntroAnimation.Timer = os.startTimer(IntroAnimation.Interval)
+		else
+			IntroAnimation.Active = false
+			IntroAnimation.Timer = nil
+		end
+	end
+
 	Draw()
 	updateTimer = os.startTimer(1)
 end
@@ -122,8 +162,9 @@ function Draw()
 
 	local startX = 2
 	local startY = 5
+	local labelOffset = IntroAnimation.Offset
 	for k, v in pairs(settings) do
-		Drawing.DrawCharacters(startX, startY, v.Label, colours.black, colours.white)
+		Drawing.DrawCharacters(startX + labelOffset, startY, v.Label, colours.black, colours.white)
 		if v.Control and v.Control.Draw then
 			v.Control:Draw()
 		elseif v.Controls then
