@@ -62,7 +62,7 @@ function Draw()
 
 
 	Drawing.DrawCharacters(10, 2, 'SpeedOS 1.4', colours.grey, colours.white)
-	Drawing.DrawCharacters(10, 3, '(c) Ma3rX 2023 - 2024', colours.lightGrey, colours.white)
+	Drawing.DrawCharacters(10, 3, '(c) Ma3rX 2023 - 2026', colours.lightGrey, colours.white)
 	Drawing.DrawCharacters(10, 4, 'Under CC BY-NC-ND 3.0 License', colours.lightGrey, colours.white)
 	Drawing.DrawCharacters(10, 5, 'Click here for more license details', colours.lightGrey, colours.white)
 
