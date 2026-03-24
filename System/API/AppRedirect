@@ -94,6 +94,8 @@
 				self:WriteToBuffer(character, self.TextColour, self.BackgroundColour)
 			end
 			self.CursorPos[1] = self.CursorPos[1] + 1
+			local pos = GetAbsolutePosition(self)
+			Current.CursorPos = {pos.X+self.CursorPos[1]-1, pos.Y+self.CursorPos[2]-1}
 		end
 
 		_term.clear = function()
@@ -143,6 +145,12 @@
 
 		_term.setTextColor = _term.setTextColour
 
+		_term.getTextColour = function()
+			return self.TextColour
+		end
+
+		_term.getTextColor = _term.getTextColour
+
 		_term.setBackgroundColour = function(colour)
 			if colour and colour <= 32768 and colour >= 1 then
 				self.BackgroundColour = colour
@@ -150,6 +158,12 @@
 		end
 
 		_term.setBackgroundColor = _term.setBackgroundColour
+
+		_term.getBackgroundColour = function()
+			return self.BackgroundColour
+		end
+
+		_term.getBackgroundColor = _term.getBackgroundColour
 
 		_term.getSize = function()
 			return self.Size[1], self.Size[2]
