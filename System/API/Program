@@ -4,9 +4,12 @@
 	AppRedirect = nil
 	Running = true
 	local _args = {}
+	local nextProgramId = 0
 	Initialise = function(self, shell, path, title, args)
 		local new = {}    -- the new instance
 		setmetatable( new, {__index = self} )
+		nextProgramId = nextProgramId + 1
+		new.Id = nextProgramId
 		_args = args
 		new.Title = title or path
 		new.Path = path
