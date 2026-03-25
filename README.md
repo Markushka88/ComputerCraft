@@ -1,4 +1,6 @@
 # SpeedOS
+<img src="https://raw.githubusercontent.com/Markushka88/Markushka88/refs/heads/main/CYTb.gif" width="640" height="397">
+
 
 ## О системе
 
