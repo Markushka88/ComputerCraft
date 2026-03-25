@@ -107,6 +107,68 @@ This essentially allows the programs to run sandboxed. For example, os.shutdown 
 			FS = fs,
 			OSRun = os.run,
 			Shell = shell,
+			IPC = { -- hueta
+				send = function(target, channel, ...)
+					if channel == nil then
+						env.printError("IPC.send: missing channel!")
+						return false
+					end
+
+					local senderId = program.Id or program.Title or program.Path
+					local senderTitle = program.Title
+					local senderPath = program.Path
+					if senderPath then
+						senderPath = Helpers.TidyPath(senderPath)
+					end
+					local recipients = {}
+
+					local currentTbl = (type(_G) == "table" and _G.Current) or Current
+					local programs = (currentTbl and currentTbl.Programs) or {}
+
+					local function matchByString(p, s)
+						if not s or s == "" then return false end
+						if p.Title == s then return true end
+						local base = (p.Path and fs.getName(p.Path)) or nil
+						if base == s then return true end
+						return false
+					end
+
+					if target == nil or target == "*" or target == "all" or target == "broadcast" then
+						for _, p in ipairs(programs) do
+							table.insert(recipients, p)
+						end
+					elseif type(target) == "number" then
+						for _, p in ipairs(programs) do
+							if p.Id == target then
+								table.insert(recipients, p)
+							end
+						end
+					elseif type(target) == "string" then
+						for _, p in ipairs(programs) do
+							if matchByString(p, target) then
+								table.insert(recipients, p)
+							end
+						end
+					else
+						env.printError("IPC.send: invalid target type: " .. type(target) .. "!")
+						return false
+					end
+
+					if #recipients == 0 then
+						env.printError("IPC.send: target not found!")
+						return false
+					end
+
+					for _, p in ipairs(recipients) do
+						p:QueueEvent('ipc_message', channel, senderId, senderTitle, senderPath, ...)
+					end
+					return true
+				end,
+
+				broadcast = function(channel, ...)
+					return env.SpeedOS.IPC.send("*", channel, ...)
+				end,
+			},
 			CanClose = function()end,
 			Close = function()
 				program:Close(true)
