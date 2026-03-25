@@ -1,4 +1,4 @@
-![иди нахуй](https://github.com/Markushka88/Markushka88/blob/main/2024-04-28_15.23.39.png)
+
 
 ## О системе
 
